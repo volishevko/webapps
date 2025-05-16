@@ -2,6 +2,36 @@ import { RotationControlOverlay } from 'https://cdn.jsdelivr.net/gh/pearcetm/osd
 
 import { DSAUserInterface } from '../dsa/dsauserinterface.mjs';
 import { SegmentationUI } from '../apps/segmentationui.mjs';
+import Header from './header/header.mjs';
+import Finder from "./finder/finderView.mjs";
+import Dropdown from './dropdown/dropdown.mjs';
+import authService from './services/auth.mjs';
+import mainService from './services/webixService.mjs';
+import apiService from './services/api.mjs';
+
+// create webix view
+const finderConfig = Finder.getConfig();
+finderConfig.container = "gw-finder";
+const finderView = webix.ui(finderConfig);
+const tree = webix.$$("gw-finder");
+const dropdownConfig = Dropdown.getConfig();
+dropdownConfig.id = "gw-dropdown";
+dropdownConfig.container = "gw-dropdown";
+const dropdownView = webix.ui(dropdownConfig);
+if (authService.isAuthenticated()) {
+    const collections = await apiService.getCollections();
+    dropdownView.getList().parse(collections);
+    dropdownView.setValue(dropdownView.getList().getFirstId());
+    const selectedCollection = dropdownView.getList().getItem(dropdownView.getValue());
+    const folders = await apiService.getFolders("collection", selectedCollection._id);
+    tree.parse(folders);
+    dropdownView.enable();
+    tree.enable();
+}
+else {
+    dropdownView.disable();
+    tree.disable();
+}
 
 // create the viewer
 let viewer = window.viewer = OpenSeadragon({
@@ -15,6 +45,8 @@ let viewer = window.viewer = OpenSeadragon({
     showNavigator:true,
     sequenceMode:true,
 });
+
+mainService.attachEvents(dropdownView, tree, viewer);
 
 // // DSA setup
 const dsaUI = new DSAUserInterface(viewer,{showHeader:'hash'});
@@ -68,12 +100,9 @@ const options = {
 }
 const segmentationUI = new SegmentationUI(options);
 
-
-
-
 segmentationUI.dsaContainer.appendChild(dsaUI.header[0]);
-segmentationUI.setSaveHandler((itemID, geoJSON)=>{
 
+segmentationUI.setSaveHandler((itemID, geoJSON)=>{
     return dsaUI.saveAnnotationInDSAFormat(itemID, geoJSON, true).then(d=>{
         segmentationUI.setAnnotationId(d._id);
         window.alert('Save succeeded');
@@ -83,3 +112,5 @@ segmentationUI.setSaveHandler((itemID, geoJSON)=>{
         window.alert('There was a problem saving the annotaiton. See console for details.');
     });
 })
+
+const header = new Header();

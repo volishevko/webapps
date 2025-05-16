@@ -1,0 +1,18 @@
+.gw-header {
+	height: 25px;
+	background-color: #eee;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 10px;
+	font-size: 12px;
+	font-family: sans-serif;
+	border-bottom: 1px solid #ccc;
+}
+.gw-header .gw-header-title {
+	font-weight: bold;
+}
+.gw-header-auth {
+	display: flex;
+	align-items: center;
+}
