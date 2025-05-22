@@ -100,6 +100,26 @@ function getImageDownloadUrl(itemId) {
 	return `${getHostApiUrl()}/item/${itemId}/download?${urlSearchParams.toString()}`;
 }
 
+async function getLinearStructure(folderId, sourceParams) {
+	const params = sourceParams ? new URLSearchParams({
+		type: "folder",
+		limit: sourceParams.limit || 50,
+		offset: sourceParams.offset || 0,
+		sort: sourceParams.sort || "lowerName",
+		sortdir: sourceParams.sortdir || 1
+	}) : null;
+	const url = `${getHostApiUrl()}/resource/${folderId}/items`;
+
+	const response = await fetch(`${url}?${params.toString()}`, {
+		headers: {
+			"Content-Type": "application/json",
+			"Girder-Token": storageService.getToken() ?? null,
+		},
+	});
+	const items = await response.json()
+	return items;
+}
+
 const apiService = {
 	getFolders,
 	getItems,
@@ -107,6 +127,7 @@ const apiService = {
 	getTileSources,
 	getImageTileUrl,
 	getImageDownloadUrl,
+	getLinearStructure,
 }
 
 export default apiService;

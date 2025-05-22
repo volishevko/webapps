@@ -19,7 +19,7 @@ function getConfig() {
 		oncontext: {},
 		template: (obj, common) => {
 			if (obj.link) {
-				return obj.link === "expand"
+				return obj.link === constants.EXPAND_LINK
 					? `${common.icon(obj, common)}<a><span class="fas fa-arrow-down expand"></span><span>Show all</span></a>`
 					: `${common.icon(obj, common)}<a><span class="fas fa-arrow-up collapse"></span><span>Hide</span></a>`;
 			}

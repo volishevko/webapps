@@ -1,8 +1,19 @@
 import apiService from "./api.mjs";
 import authService from "./auth.mjs";
 import constants from "../constants.mjs";
+const webixViews = {
+	dropdown: null,
+	foldersView: null,
+};
+
+const OSDViewers = {
+	viewer: null,
+}
 
 function attachEvents(dropdown, foldersView, viewer) {
+	webixViews.dropdown = dropdown;
+	webixViews.foldersView = foldersView;
+	OSDViewers.viewer = viewer;
 	dropdown.attachEvent("onChange", async (newValue, oldValue) => {
 		const selectedCollection = dropdown.getList().getItem(dropdown.getValue());
 		if (selectedCollection) {
@@ -43,10 +54,10 @@ function attachEvents(dropdown, foldersView, viewer) {
 		}
 		else if (item._modelType === "folder") {
 			if (item?.meta?.isLinear) {
-				loadBranch(id, foldersView);// TODO: implement linear folder loading
+				loadLinearData(id);
 			}
 			else {
-				loadBranch(id, foldersView);
+				loadBranch(id);
 			}
 		}
 		else if (item._modelType === constants.SUB_FOLDER_MODEL_TYPE) {
@@ -57,7 +68,7 @@ function attachEvents(dropdown, foldersView, viewer) {
 				ok: "Yes"
 			})
 				.then(() => {
-					openSubFolder(foldersView, id);
+					openSubFolder(id);
 				})
 				.catch(() => {
 					foldersView.select(item.$parent);
@@ -74,72 +85,70 @@ function attachEvents(dropdown, foldersView, viewer) {
 }
 
 async function updateData() {
-	const tree = webix.$$("gw-finder");
-	const dropdown = webix.$$("gw-dropdown");
 	if (authService.isAuthenticated()) {
-		tree.enable();
-		dropdown.enable();
+		webixViews.foldersView.enable();
+		webixViews.dropdown.enable();
 	}
 	else {
-		tree.disable();
-		dropdown.disable();
-		tree.clearAll();
-		dropdown.getList().clearAll();
+		webixViews.foldersView.disable();
+		webixViews.dropdown.disable();
+		webixViews.foldersView.clearAll();
+		webixViews.dropdown.getList().clearAll();
 	}
-	if (dropdown) {
+	if (webixViews.dropdown) {
 		const collections = await apiService.getCollections();
-		dropdown.getList().parse(collections);
-		dropdown.enable();
+		webixViews.dropdown.getList().parse(collections);
+		webixViews.dropdown.enable();
 	}
-	if (tree) {
-		tree.clearAll();
-		const selectedCollection = dropdown.getSelectedItem();
+	if (webixViews.foldersView) {
+		webixViews.foldersView.clearAll();
+		const selectedCollection = webixViews.dropdown.getSelectedItem();
 		if (selectedCollection) {
 			const folders = await apiService.getFolders("collection", selectedCollection._id);
 			if (folders) {
-				tree.clearAll();
-				tree.parse(folders);
+				webixViews.foldersView.clearAll();
+				webixViews.foldersView.parse(folders);
 			}
 		}
-		tree.refresh();
+		webixViews.foldersView.refresh();
 	}
 }
 
-async function loadBranch(id, foldersView) {
-	const currentItem = foldersView.getItem(id);
+async function loadBranch(id) {
+	const currentItem = webixViews.foldersView.getItem(id);
 	const folders = await apiService.getFolders("folder", currentItem._id);
 	const items = await apiService.getItems(currentItem._id);
 	if (Array.isArray(folders)) {
-		foldersView.parse({data: folders, parent: id});
+		webixViews.foldersView.parse({data: folders, parent: id});
 	}
 	if (Array.isArray(items)) {
-		foldersView.parse({data: items, parent: id});
+		webixViews.foldersView.parse({data: items, parent: id});
 	}
-	foldersView.open(id);
+	webixViews.foldersView.open(id);
 }
 
-function openSubFolder(foldersView, id) {
-	const subFolder = findItem(foldersView, id);
-	const parent = findItem(foldersView, subFolder.$parent);
-	const branch = foldersView.data.getBranch(id);
+function openSubFolder(id) {
+	const subFolder = findItem(id);
+	const parent = findItem(subFolder.$parent);
+	const branch = webixViews.foldersView.data.getBranch(id);
 	parent._showMany = true;
-	removeItem(foldersView, id);
-	parseItems(foldersView, branch, parent.id);
+	removeItem(id);
+	parseItems(branch, parent.id);
 }
 
-function removeItem(foldersView, id, baseId) {
+function removeItem(id, baseId) {
 	let item = null;
 	if (id) {
-		item = foldersView.getItem(id);
-		foldersView.remove(id);
+		item = webixViews.foldersView.getItem(id);
+		webixViews.foldersView.remove(id);
 	}
 	else if (baseId) {
-		foldersView.remove(item.id);
+		webixViews.foldersView.remove(item.id);
 		delete customFinderDataPull[baseId];
 	}
 }
 
-function parseItems(foldersView, dataArray, parentId, linearDataCount) {
+function parseItems(dataArray, parentId, linearDataCount) {
 	const finderDataPull = {};
 	dataArray.forEach((item) => {
 		const id = webix.uid();
@@ -150,15 +159,15 @@ function parseItems(foldersView, dataArray, parentId, linearDataCount) {
 	});
 
 	if (parentId) {
-		parseItemsToFolder(foldersView,dataArray, parentId, linearDataCount);
+		parseItemsToFolder(dataArray, parentId, linearDataCount);
 	}
 	else {
-		foldersView.parse(dataArray);
+		webixViews.foldersView.parse(dataArray);
 	}
 }
 
-function parseItemsToFolder(foldersView, dataArray, parentId, linearDataCount) {
-	let branch = foldersView.data.getBranch(parentId) || [];
+function parseItemsToFolder(dataArray, parentId, linearDataCount) {
+	let branch = webixViews.foldersView.data.getBranch(parentId) || [];
 	const parent = findItem(parentId);
 	if (parent?.linear) {
 		if (!parent.linear.count) {
@@ -168,38 +177,91 @@ function parseItemsToFolder(foldersView, dataArray, parentId, linearDataCount) {
 			parent.linear.count += linearDataCount;
 		}
 	}
-	const count = getFolderCount(parent) + dataArray.length;
-	let items = dataArray;
-	if (count >= constants.FOLDER_MAX_SHOWED_ITEMS && !parent._showMany) {
-		if (branch.length === 1 && branch[0]._modelType === subFolderType) {
-			parentId = branch[0].id;
-		}
-		else {
-			foldersView.callEvent("putItemsToSubFolder");
-			foldersView.blockEvent();
-			foldersView.close(parentId);
-			branch.forEach(item => removeItem(foldersView, item.id));
-			foldersView.unblockEvent();
-
-			items = [{
-				_modelType: subFolderType,
-				data: branch.concat(dataArray),
-				name: "&lt;items&gt;"
-			}];
-		}
-	}
-	foldersView.parse({data: items, parent: parentId});
-	foldersView.blockEvent();
-	foldersView.open(parent.id);
-	foldersView.unblockEvent();
+	
+	webixViews.foldersView.parse({data: dataArray, parent: parentId});
+	webixViews.foldersView.blockEvent();
+	webixViews.foldersView.open(parent.id);
+	webixViews.foldersView.unblockEvent();
 }
 
-function findItem(foldersView, id, baseId) {
+function findItem(id, baseId) {
 	let item = null;
 	if (id) {
-		item = foldersView.getItem(id);
+		item = webixViews.foldersView.getItem(id);
 	}
 	return item;
+}
+
+async function loadLinearData(folderId) {
+	const sourceParams = {
+		sort: "lowerName",
+		offset: 0,
+		limit: constants.LINEAR_STRUCTURE_LIMIT,
+	}
+	const addBatch = false;
+	const isCollapsed = true;
+	webixViews.foldersView.open(folderId);
+	const folder = webixViews.foldersView.getItem(folderId);
+	folder.linear = Object.assign({}, constants.LOADING_STATUSES.IN_PROGRESS);
+	linearStructureHandler(
+		folderId,
+		sourceParams,
+		addBatch,
+		isCollapsed,
+	)
+	webixViews.foldersView.updateItem(folderId, folder);
+}
+
+async function linearStructureHandler(
+	folderId,
+	sourceParams,
+	addBatch,
+	isCollapsed) {
+		const folder = webixViews.foldersView.getItem(folderId);
+		webixViews.foldersView.blockEvent();
+		webixViews.foldersView.select(folderId);
+		webixViews.foldersView.unblockEvent();
+		const data = await apiService.getLinearStructure(folder._id, sourceParams);
+		if (data.length === 0) {
+			folder.linear = null;
+		}
+		else if (folder.linear) {
+			const finderElements = [];
+			if (isCollapsed) {
+				finderElements.push(
+					...data
+				);
+			}
+			else if (data.length < sourceParams.limit) {
+				finderElements.push(...webix.copy(data));
+			}
+
+			parseItemsToFolder(finderElements, folderId, data.length);
+
+			if (data.length < sourceParams.limit) {
+				const currentLinear = folder.linear;
+				webixViews.foldersView.updateItem(
+					folderId,
+					{linear: Object.assign(currentLinear, constants.LOADING_STATUSES.DONE)}
+				);
+				webixViews.foldersView.open(folderId)
+			}
+			else {
+				const newOffset = sourceParams.offset + data.length;
+				const newParams = {
+					sort: "lowerName",
+					limit: constants.LINEAR_STRUCTURE_LIMIT,
+					offset: newOffset
+				};
+
+				linearStructureHandler(
+					folderId,
+					newParams,
+					addBatch,
+					isCollapsed
+				);
+			}
+		}
 }
 
 const mainService = {
