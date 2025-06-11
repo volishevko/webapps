@@ -1,5 +1,6 @@
 import apiService from "./api.mjs";
 import authService from "./auth.mjs";
+import storageService from "./storageService.mjs";
 import constants from "../constants.mjs";
 const webixViews = {
 	dropdown: null,
@@ -10,10 +11,15 @@ const OSDViewers = {
 	viewer: null,
 }
 
-function attachEvents(dropdown, foldersView, viewer) {
+const dsaUserInterface = {
+	dsaUI: null,
+}
+
+function attachEvents(dropdown, foldersView, viewer, dsaUI) {
 	webixViews.dropdown = dropdown;
 	webixViews.foldersView = foldersView;
 	OSDViewers.viewer = viewer;
+	dsaUserInterface.dsaUI = dsaUI;
 	dropdown.attachEvent("onChange", async (newValue, oldValue) => {
 		const selectedCollection = dropdown.getList().getItem(dropdown.getValue());
 		if (selectedCollection) {
@@ -39,22 +45,13 @@ function attachEvents(dropdown, foldersView, viewer) {
 		const isCollapsed = item.link !== constants.EXPAND_LINK;
 		const parentId = foldersView.getParentId(id);
 		if (item._modelType === "item" || !item._modelType) {
-			const itemId = item._id;
-			const itemTiles = await apiService.getTileSources(itemId);
-			const tileSources = new OpenSeadragon.ImageTileSource({
-				width: itemTiles.sizeX,
-				height: itemTiles.sizeY,
-				tileWidth: itemTiles.tileWidth,
-				tileHeight: itemTiles.tileHeight,
-				minLevel: 0,
-				maxLevel: itemTiles.levels - 1,
-				url: apiService.getImageDownloadUrl(itemId),
-			});
-			viewer.open(tileSources);
+
+			dsaUserInterface.dsaUI.openItem(item._id);
 		}
 		else if (item._modelType === "folder") {
 			if (item?.meta?.isLinear) {
-				loadLinearData(id);
+				loadLinearData(id);// TODO: implement linear folder loading
+				// loadBranch(id);
 			}
 			else {
 				loadBranch(id);
@@ -102,7 +99,7 @@ async function updateData() {
 	}
 	if (webixViews.foldersView) {
 		webixViews.foldersView.clearAll();
-		const selectedCollection = webixViews.dropdown.getSelectedItem();
+		const selectedCollection = webixViews.dropdown.getList().getSelectedItem();
 		if (selectedCollection) {
 			const folders = await apiService.getFolders("collection", selectedCollection._id);
 			if (folders) {
@@ -177,7 +174,7 @@ function parseItemsToFolder(dataArray, parentId, linearDataCount) {
 			parent.linear.count += linearDataCount;
 		}
 	}
-	
+
 	webixViews.foldersView.parse({data: dataArray, parent: parentId});
 	webixViews.foldersView.blockEvent();
 	webixViews.foldersView.open(parent.id);
@@ -230,10 +227,15 @@ async function linearStructureHandler(
 			if (isCollapsed) {
 				finderElements.push(
 					...data
+					// ...data.slice(0, constants.COLLAPSED_ITEMS_COUNT - sourceParams.offset)
 				);
+				// if (data.length < sourceParams.limit) {
+				// 	finderElements.push({link: constants.EXPAND_LINK});
+				// }
 			}
 			else if (data.length < sourceParams.limit) {
 				finderElements.push(...webix.copy(data));
+				// finderElements.push({link: constants.COLLAPSE_LINK});
 			}
 
 			parseItemsToFolder(finderElements, folderId, data.length);
@@ -264,9 +266,17 @@ async function linearStructureHandler(
 		}
 }
 
+function connectToDSA(baseUrl) {
+	const url = baseUrl ?? storageService.getServerUrl();
+	if (url) {
+		dsaUserInterface.dsaUI.connectToDSA(url)
+	}
+}
+
 const mainService = {
 	attachEvents,
 	updateData,
+	connectToDSA,
 }
 
 export default mainService;

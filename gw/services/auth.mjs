@@ -50,12 +50,22 @@ function getUserInfo() {
 	return storageService.getUserInfo();
 }
 
+function getServerUrlList() {
+	return storageService.getServerUrlList();
+}
+
+function addServerUrlToList(url) {
+	storageService.addServerUrlToList(url);
+}
+
 const authService = {
 	login,
 	logout,
 	isAuthenticated,
 	getToken,
-	getUserInfo
+	getUserInfo,
+	getServerUrlList,
+	addServerUrlToList
 };
 
 export default authService;

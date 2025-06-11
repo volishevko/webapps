@@ -103,11 +103,21 @@ export default class AuthenticationPopup {
 		content.appendChild(popupDescription);
 
 		const serverInput = document.createElement('input');
+		const dataList = document.createElement('datalist');
+		dataList.id = 'gw-auth-server-list';
+		const serverUrlList = authService.getServerUrlList();
+		serverUrlList.forEach(url => {
+			const option = document.createElement('option');
+			option.value = url;
+			dataList.appendChild(option);
+		});
 		serverInput.type = 'text';
+		serverInput.setAttribute('list', 'gw-auth-server-list');
 		serverInput.placeholder = 'Server URL';
 		serverInput.className = 'gw-auth-popup-input';
-		serverInput.value = 'https://styx.neurology.emory.edu'; // Default server URL
+		serverInput.value = ''; // Default server URL
 		content.appendChild(serverInput);
+		content.appendChild(dataList);
 
 		const usernameInput = document.createElement('input');
 		usernameInput.type = 'text';
@@ -166,13 +176,13 @@ export default class AuthenticationPopup {
 
 		if (serverURL && username && password) {
 			// Perform login logic here
+			authService.addServerUrlToList(serverURL);
 			await authService.login(serverURL, username,password);
 			const authFlag = authService.isAuthenticated();
 			if (authFlag) {
 				this.statusBar.innerText = 'Logged in as: ' + authService.getUserInfo();
 				this.popup.style.display = 'none';
 				this.openButton.style.display = 'none';
-				this.logoutButton
 			} else {
 				alert('Login failed. Please check your credentials.');
 			}
@@ -180,7 +190,6 @@ export default class AuthenticationPopup {
 			alert('Please fill in all fields.');
 		}
 		this.updateStatus();
-		mainService
 	}
 
 	updateStatus() {
