@@ -83,31 +83,36 @@ function attachEvents(dropdown, foldersView, viewer, dsaUI) {
 
 async function updateData() {
 	if (authService.isAuthenticated()) {
-		webixViews.foldersView.enable();
-		webixViews.dropdown.enable();
+		if (webixViews.dropdown) {
+			const collections = await apiService.getCollections();
+			webixViews.dropdown.getList().parse(collections);
+			webixViews.dropdown.enable();
+		}
+		if (webixViews.foldersView) {
+			webixViews.foldersView.clearAll();
+			const selectedCollection = webixViews.dropdown.getList().getSelectedItem();
+			if (selectedCollection) {
+				const folders = await apiService.getFolders("collection", selectedCollection._id);
+				if (folders) {
+					webixViews.foldersView.clearAll();
+					webixViews.foldersView.parse(folders);
+				}
+			}
+			webixViews.foldersView.refresh();
+			webixViews.foldersView.enable();
+		}
 	}
 	else {
-		webixViews.foldersView.disable();
-		webixViews.dropdown.disable();
-		webixViews.foldersView.clearAll();
-		webixViews.dropdown.getList().clearAll();
-	}
-	if (webixViews.dropdown) {
-		const collections = await apiService.getCollections();
-		webixViews.dropdown.getList().parse(collections);
-		webixViews.dropdown.enable();
-	}
-	if (webixViews.foldersView) {
-		webixViews.foldersView.clearAll();
-		const selectedCollection = webixViews.dropdown.getList().getSelectedItem();
-		if (selectedCollection) {
-			const folders = await apiService.getFolders("collection", selectedCollection._id);
-			if (folders) {
-				webixViews.foldersView.clearAll();
-				webixViews.foldersView.parse(folders);
-			}
+		if (webixViews.dropdown) {
+			webixViews.dropdown.disable();
+			webixViews.dropdown.getList().clearAll();
+			webixViews.dropdown.refresh();
 		}
-		webixViews.foldersView.refresh();
+		if (webixViews.foldersView) {
+			webixViews.foldersView.disable();
+			webixViews.foldersView.clearAll();
+			webixViews.foldersView.refresh();
+		}
 	}
 }
 
